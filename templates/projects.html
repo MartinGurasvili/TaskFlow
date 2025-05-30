@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Manage Projects</h2>
+{% if role == 'admin' %}
+<form method="POST" class="mb-4">
+  <label for="name">Project Name</label>
+  <input id="name" name="name" class="form-control" required>
+  <label for="description">Description</label>
+  <textarea id="description" name="description" class="form-control"></textarea>
+  <button class="btn btn-primary mt-2">Add Project</button>
+</form>
+{% endif %}
+{% for project in projects %}
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>{{ project.name }}</strong>
+      {% if role == 'admin' %}
+      <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}" style="display:inline;" onsubmit="return confirm('Delete this project and all its data?');">
+        <button class="btn btn-danger btn-sm" title="Delete Project">&times;</button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      <div>{{ project.description }}</div>
+      {% if role == 'admin' %}
+      <form method="POST" action="{{ url_for('assign_users_to_project', project_id=project.id) }}">
+        <label>Assign/Remove Users:</label>
+        <select name="user_ids" multiple class="form-control" size="3">
+          {% for u in users %}
+            <option value="{{ u.id }}" {% if u in project.users %}selected{% endif %}>{{ u.username }}</option>
+          {% endfor %}
+        </select>
+        <small class="form-text text-muted mb-2">Hold Ctrl/Cmd to select or deselect multiple users.</small>
+        <button class="btn btn-secondary btn-sm mt-2">Update Users</button>
+      </form>
+      {% else %}
+        {% if user not in project.users %}
+        <form method="POST" action="{{ url_for('assign_users_to_project', project_id=project.id) }}">
+          <button class="btn btn-info btn-sm mt-2">Assign me</button>
+        </form>
+        {% else %}
+          <span class="badge badge-success mt-2">You are assigned</span>
+        {% endif %}
+      {% endif %}
+      <form method="POST" action="{{ url_for('add_sprint', project_id=project.id) }}" class="mt-2">
+        <label>Add Sprint:</label>
+        <input name="name" class="form-control" required>
+        <button class="btn btn-info btn-sm mt-2">Add Sprint</button>
+      </form>
+      <div class="mt-2">
+        <strong>Sprints:</strong>
+        {% for sprint in project.sprints %}
+          <span class="badge badge-primary">{{ sprint.name }}</span>
+        {% endfor %}
+      </div>
+      <div class="mt-2">
+        <strong>Assigned Users:</strong>
+        {% for u in project.users %}
+          <span class="badge badge-info">{{ u.username }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}

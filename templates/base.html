@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TaskFlow - Project Task Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="https://img.icons8.com/ios-filled/50/000000/task.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <style>
+      :root {
+        --primary-bg: #f8f9fa;
+        --primary-text: #212529;
+        --secondary-bg: #23272b;
+        --secondary-text: #f8f9fa;
+        --sidebar-width: 220px;
+        --accent1: #6c63ff;
+        --accent2: #ffb6b9;
+        --accent3: #b5ead7;
+        --accent4: #ffdac1;
+        --accent5: #c7ceea;
+        --card-bg: #fff;
+        --input-bg: #f3f3fa;
+        --card-bg-dark: #23272b;
+        --input-bg-dark: #2a2e39;
+        --border-dark: #444;
+      }
+      html, body {
+        height: 100%;
+        min-height: 100%;
+      }
+      body.light-mode {
+        background: #f8f9fa;
+        color: var(--primary-text);
+        --card-bg: #fff;
+        --input-bg: #f3f3fa;
+      }
+      body.dark-mode {
+        background: #23272b;
+        color: var(--secondary-text);
+        --card-bg: var(--card-bg-dark);
+        --input-bg: var(--input-bg-dark);
+      }
+      .navbar, .navbar-light, .navbar.bg-light, .navbar.fixed-top {
+        background: #6c63ff !important;
+        color: #fff !important;
+        border-bottom: none;
+        box-shadow: 0 2px 8px rgba(108,99,255,0.08);
+      }
+      .navbar .nav-link, .navbar .nav-link:visited {
+        color: #fff !important;
+        font-weight: 500;
+        margin-right: 0.5rem;
+        transition: color 0.2s;
+      }
+      .navbar .nav-link:hover, .navbar .nav-link.active {
+        color: var(--accent2, #ffb6b9) !important;
+        text-decoration: underline;
+      }
+      .navbar .logo-title .h4 {
+        color: #fff !important;
+        text-shadow: 0 1px 4px rgba(108,99,255,0.10);
+      }
+      .navbar .theme-toggle {
+        border: 2px solid #fff !important;
+        color: #fff !important;
+        background: transparent !important;
+        font-size: 1.3em;
+        margin-left: 1rem;
+        transition: border-color 0.2s, background 0.2s, color 0.2s;
+      }
+      .navbar .theme-toggle:focus,
+      .navbar .theme-toggle:hover {
+        border-color: #fff !important;
+        background: #fff !important;
+        color: var(--accent1, #6c63ff) !important;
+      }
+      .logo-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .logo-title img {
+        width: 40px;
+        height: 40px;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0,0,0,0);
+        border: 0;
+      }
+      #sidebar {
+        position: fixed;
+        top: 56px;
+        left: 0;
+        height: 100vh;
+        width: var(--sidebar-width);
+        background: rgba(255, 255, 255, 0.18);
+        border-right: 1px solid rgba(255,255,255,0.18);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.10);
+        backdrop-filter: blur(16px) saturate(180%);
+        -webkit-backdrop-filter: blur(16px) saturate(180%);
+        border-radius: 0 18px 18px 0;
+        padding: 1rem 0.5rem 1rem 1rem;
+        transition: transform 0.2s, background 0.3s;
+        z-index: 1030;
+        overflow-y: auto;
+        outline: none;
+      }
+      #sidebar.dark-mode {
+        background: rgba(35, 39, 43, 0.38);
+        border-color: rgba(108,99,255,0.18);
+        box-shadow: 0 8px 32px 0 rgba(108,99,255,0.10);
+        backdrop-filter: blur(18px) saturate(160%);
+        -webkit-backdrop-filter: blur(18px) saturate(160%);
+      }
+      #sidebar:focus {
+        outline: 2px solid var(--accent1, #6c63ff);
+      }
+      #sidebar.collapsed {
+        transform: translateX(-100%);
+      }
+      #sidebar .sidebar-header {
+        font-weight: bold;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--accent1, #6c63ff);
+      }
+      #sidebar .project-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        color: #6c63ff;
+        text-decoration: none;
+        margin-bottom: 2px;
+        transition: background 0.2s, color 0.2s;
+        font-weight: 500;
+        background: transparent;
+        position: relative;
+      }
+      #sidebar .project-link.active, #sidebar .project-link:hover {
+        background: var(--accent1, #6c63ff);
+        color: #fff;
+      }
+      #sidebar .sidebar-toggle {
+        background: none;
+        border: none;
+        font-size: 1.3rem;
+        color: #888;
+        cursor: pointer;
+        margin-left: 0.5rem;
+      }
+      #sidebar .assigned-users {
+        font-size: 0.92em;
+        color: #555;
+        margin-left: 0.5rem;
+        margin-bottom: 0.2rem;
+      }
+      #sidebar .assigned-users .user-badge {
+        background: var(--accent5, #c7ceea);
+        color: #333;
+        border-radius: 8px;
+        padding: 2px 8px;
+        margin-right: 2px;
+        font-size: 0.92em;
+        display: inline-block;
+      }
+      #sidebar-open-btn {
+        display: none;
+        position: fixed;
+        top: 65px;
+        left: 10px;
+        z-index: 1041;
+        background: var(--accent1, #6c63ff);
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        font-size: 1.7em;
+        box-shadow: 0 2px 8px rgba(108,99,255,0.15);
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+      #sidebar.collapsed ~ #sidebar-open-btn {
+        display: flex;
+      }
+      @media (max-width: 991px) {
+        #sidebar {
+          width: 80vw;
+        }
+      }
+      @media (max-width: 767px) {
+        #sidebar {
+          width: 100vw;
+        }
+        #sidebar-open-btn {
+          top: 15px;
+          left: 10px;
+        }
+      }
+      .main-content {
+        min-height: 100vh;
+        width: 100%;
+        margin-left: var(--sidebar-width);
+        transition: margin-left 0.2s, max-width 0.2s;
+        padding: 0 8px;
+        background: transparent;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        max-width: 100vw;
+      }
+      .main-content.sidebar-collapsed {
+        margin-left: 0;
+        max-width: 100vw;
+      }
+      @media (min-width: 1200px) {
+        .main-content:not(.sidebar-collapsed) {
+          max-width: calc(100vw - var(--sidebar-width) - 60px);
+          margin-left: var(--sidebar-width);
+          margin-right: auto;
+        }
+      }
+      .container-fluid {
+        padding-left: 0;
+        padding-right: 0;
+      }
+      .navbar.fixed-top {
+        z-index: 1040;
+      }
+      .card, .btn, .table {
+        border-radius: 12px !important;
+        background: var(--card-bg, #fff) !important;
+        color: inherit !important;
+        border: none;
+      }
+      body.dark-mode .card, body.dark-mode .table {
+        background: var(--card-bg-dark, #23272b) !important;
+        color: var(--secondary-text, #f8f9fa) !important;
+        border: 1px solid var(--border-dark, #444) !important;
+      }
+      body.dark-mode .btn, body.dark-mode .btn-primary, body.dark-mode .btn-info, body.dark-mode .btn-secondary, body.dark-mode .btn-danger {
+        color: #fff !important;
+        border: none !important;
+      }
+      .btn-primary, .btn-info {
+        background: var(--accent1, #6c63ff) !important;
+        border-color: var(--accent1, #6c63ff) !important;
+        color: #fff !important;
+      }
+      .btn-secondary {
+        background: var(--accent2, #ffb6b9) !important;
+        border-color: var(--accent2, #ffb6b9) !important;
+        border: 10px;
+        color: #fff !important;
+      }
+      .btn-danger {
+        background: var(--accent4, #ffdac1) !important;
+        border-color: var(--accent4, #ffdac1) !important;
+        color: #333 !important;
+      }
+      .badge-primary {
+        background: var(--accent1, #6c63ff) !important;
+      }
+      .badge-success {
+        background: var(--accent3, #b5ead7) !important;
+        color: #333 !important;
+      }
+      .badge-info {
+        background: var(--accent5, #c7ceea) !important;
+        color: #333 !important;
+      }
+      .alert-info {
+        background: var(--accent5, #c7ceea) !important;
+        color: #333 !important;
+        border: none;
+      }
+      .alert-danger {
+        background: var(--accent2, #ffb6b9) !important;
+        color: #333 !important;
+        border: none;
+      }
+      .alert-success {
+        background: var(--accent3, #b5ead7) !important;
+        color: #333 !important;
+        border: none;
+      }
+      .alert-warning {
+        background: var(--accent4, #ffdac1) !important;
+        color: #333 !important;
+        border: none;
+      }
+      .form-control {
+        background: var(--input-bg, #f3f3fa);
+        color: inherit;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+      }
+      body.dark-mode .form-control {
+        background: var(--input-bg-dark, #2a2e39);
+        color: #f8f9fa;
+        border: 1px solid var(--border-dark, #444);
+      }
+      .form-control:focus {
+        border-color: var(--accent1, #6c63ff);
+        box-shadow: 0 0 0 0.2rem rgba(108,99,255,.15);
+      }
+      .btn:focus {
+        box-shadow: 0 0 0 0.2rem rgba(108,99,255,.15);
+      }
+      .board-column {
+        background: var(--primary-bg, #f8f9fa);
+        color: inherit;
+      }
+      body.dark-mode .board-column {
+        background: #23272b;
+        color: #f8f9fa;
+        border: 2px solid var(--accent1, #6c63ff);
+      }
+      .task-card {
+        background: #fff;
+        color: inherit;
+      }
+      body.dark-mode .task-card {
+        background: #343a40;
+        color: #f8f9fa;
+      }
+      .task-card.closed {
+        background: #e9ecef !important;
+        color: #888 !important;
+      }
+      body.dark-mode .task-card.closed {
+        background: #444 !important;
+        color: #aaa !important;
+      }
+      @media (max-width: 991px) {
+        .main-content {
+          margin-left: 0;
+          max-width: 100vw;
+        }
+      }
+      .alert-toast {
+        position: fixed;
+        bottom: 32px;
+        right: 32px;
+        min-width: 280px;
+        max-width: 90vw;
+        z-index: 2002;
+        border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+        opacity: 0;
+        transform: translateY(40px);
+        transition: opacity 0.4s, transform 0.4s;
+        pointer-events: none;
+        font-size: 1.1em;
+      }
+      .alert-toast.show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+      .alert-toast.celebrate {
+        background: linear-gradient(90deg, #ffe259 0%, #ffa751 100%) !important;
+        color: #23272b !important;
+        font-weight: bold;
+        border: 2px solid #fff176;
+        box-shadow: 0 4px 32px 0 rgba(255, 226, 89, 0.25);
+        animation: popcelebrate 0.7s;
+      }
+      @keyframes popcelebrate {
+        0% { transform: scale(0.8) translateY(40px); opacity: 0; }
+        60% { transform: scale(1.08) translateY(-8px); opacity: 1; }
+        100% { transform: scale(1) translateY(0); opacity: 1; }
+      }
+      @media (max-width: 600px) {
+        .alert-toast, .alert-fixed {
+          right: 8px;
+          left: 8px;
+          min-width: unset;
+        }
+      }
+    </style>
+</head>
+<body class="light-mode">
+<nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top" aria-label="Main navigation">
+  <span class="logo-title">
+    <img src="https://img.icons8.com/ios-filled/50/000000/task.png" alt="TaskFlow Logo" aria-hidden="true">
+    <span class="h4 mb-0" style="font-weight: bold;">TaskFlow</span>
+  </span>
+  {% if session.get('user_id') %}
+  <button class="navbar-toggler ml-2" type="button" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  {% endif %}
+  <div class="ml-auto d-flex align-items-center">
+    {% if session.get('user_id') %}
+      <a href="{{ url_for('dashboard') }}" class="nav-link d-inline">Dashboard</a>
+      {% if session.get('role') == 'admin' %}
+      <a href="{{ url_for('manage_projects') }}" class="nav-link d-inline">Projects</a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}" class="nav-link d-inline">Logout</a>
+    {% else %}
+      <a href="{{ url_for('login') }}" class="nav-link d-inline">Login</a>
+      <a href="{{ url_for('register') }}" class="nav-link d-inline">Register</a>
+    {% endif %}
+    <button class="btn btn-outline-secondary theme-toggle" id="theme-toggle-btn" aria-label="Toggle dark/light mode" aria-pressed="false">
+      <span id="theme-toggle-icon">🌙</span>
+      <span class="sr-only">Toggle dark/light mode</span>
+    </button>
+  </div>
+</nav>
+{% set show_sidebar = session.get('user_id') and request.endpoint not in ['login', 'register'] %}
+{% if show_sidebar %}
+<div id="sidebar" class="{% if session.get('theme') == 'dark' %}dark-mode{% endif %}" tabindex="0" aria-label="Project navigation">
+  <div class="sidebar-header">
+    Projects
+    <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Collapse sidebar">&times;</button>
+  </div>
+  {% if g.get('projects') %}
+    {% for project in g.projects %}
+      <div>
+        <a href="{{ url_for('dashboard', project=project.id) }}" class="project-link{% if g.get('selected_project') and project.id == g.selected_project.id %} active{% endif %}" tabindex="0" aria-current="{% if g.get('selected_project') and project.id == g.selected_project.id %}page{% endif %}">
+          <span>{{ project.name }}</span>
+        </a>
+        {% if project.users %}
+          <div class="assigned-users" aria-label="Assigned users">
+            {% for user in project.users %}
+              <span class="user-badge" title="{{ user.username }}">{{ user.username }}</span>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <span class="text-muted">No projects assigned.</span>
+  {% endif %}
+</div>
+<button id="sidebar-open-btn" onclick="toggleSidebar()" title="Open sidebar" aria-label="Open sidebar" style="display:none; position:fixed;">
+  &#9776;
+</button>
+<div id="sidebar-overlay" onclick="toggleSidebar()" style="display:none;"></div>
+{% endif %}
+<div class="main-content{% if show_sidebar %}{% else %} sidebar-collapsed{% endif %}" id="main-content" role="main" style="min-height:100vh; width:100vw;">
+    <div id="alert-toast-container"></div>
+    <div style="margin-top:70px;">
+      {% block content %}{% endblock %}
+    </div>
+</div>
+{% set messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<script>
+let flashMessages = {{ messages|tojson|safe }};
+document.addEventListener('DOMContentLoaded', function() {
+  if (flashMessages && flashMessages.length) {
+    flashMessages.forEach(function(item) {
+      showToast(item[1], item[0]);
+    });
+  }
+});
+</script>
+{% endif %}
+<script>
+  const body = document.body;
+  const btn = document.getElementById('theme-toggle-btn');
+  const icon = document.getElementById('theme-toggle-icon');
+  function setTheme(mode) {
+    if (mode === 'dark') {
+      body.classList.remove('light-mode');
+      body.classList.add('dark-mode');
+      icon.textContent = '☀️';
+      btn.setAttribute('aria-pressed', 'true');
+      document.getElementById('sidebar')?.classList.add('dark-mode');
+    } else {
+      body.classList.remove('dark-mode');
+      body.classList.add('light-mode');
+      icon.textContent = '🌙';
+      btn.setAttribute('aria-pressed', 'false');
+      document.getElementById('sidebar')?.classList.remove('dark-mode');
+    }
+    localStorage.setItem('theme', mode);
+  }
+  btn.addEventListener('click', () => {
+    const isDark = body.classList.contains('dark-mode');
+    setTheme(isDark ? 'light' : 'dark');
+  });
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') setTheme('dark');
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('main-content');
+    const overlay = document.getElementById('sidebar-overlay');
+    const openBtn = document.getElementById('sidebar-open-btn');
+    if (!sidebar) return;
+    if (sidebar.classList.contains('collapsed')) {
+      sidebar.classList.remove('collapsed');
+      mainContent.classList.remove('sidebar-collapsed');
+      if (overlay) overlay.style.display = 'block';
+      if (openBtn) openBtn.style.display = 'none';
+      sidebar.focus();
+    } else {
+      sidebar.classList.add('collapsed');
+      mainContent.classList.add('sidebar-collapsed');
+      if (overlay) overlay.style.display = 'none';
+      if (openBtn) openBtn.style.display = 'flex';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    var sidebar = document.getElementById('sidebar');
+    var openBtn = document.getElementById('sidebar-open-btn');
+    var overlay = document.getElementById('sidebar-overlay');
+    var mainContent = document.getElementById('main-content');
+    if (sidebar && openBtn) {
+      const observer = new MutationObserver(() => {
+        if (sidebar.classList.contains('collapsed')) {
+          openBtn.style.display = 'flex';
+        } else {
+          openBtn.style.display = 'none';
+        }
+      });
+      observer.observe(sidebar, { attributes: true });
+    }
+    if (!sidebar) {
+      if (overlay) overlay.style.display = 'none';
+      if (openBtn) openBtn.style.display = 'none';
+      if (mainContent) mainContent.classList.add('sidebar-collapsed');
+    }
+  });
+  function showToast(message, category, celebrate) {
+    const container = document.getElementById('alert-toast-container');
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${category} alert-toast` + (celebrate ? ' celebrate' : '');
+    toast.innerHTML = message + (celebrate ? ' 🎉' : '');
+    container.appendChild(toast);
+    setTimeout(() => { toast.classList.add('show'); }, 10);
+    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3500);
+  }
+  function quickAddTask(projectId) { openTaskModal(projectId); }
+  function openTaskModal(projectId) {
+    fetch("{{ url_for('create_task') }}?project_id=" + projectId)
+      .then(response => response.text())
+      .then(html => {
+        let modal = document.createElement('div');
+        modal.id = "task-modal-overlay";
+        modal.innerHTML = html;
+        document.body.appendChild(modal);
+        document.body.style.overflow = "hidden";
+        setTimeout(() => {
+          const firstInput = modal.querySelector('input,select,textarea');
+          if (firstInput) firstInput.focus();
+        }, 100);
+      });
+  }
+  function closeTaskModal() {
+    let modal =  document.getElementById('task-modal-overlay');
+    if (modal) {
+      modal.remove();
+      document.body.style.overflow = "";
+    }
+  }
+  document.addEventListener('keydown', function(e) { if (e.key === "Escape") closeTaskModal(); });
+</script>
+</body>
+</html>

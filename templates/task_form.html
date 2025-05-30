@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block content %}
+<div id="task-modal-bg" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;">
+  <div class="card" style="max-width:420px;width:95vw;border-radius:18px;box-shadow:0 4px 32px rgba(0,0,0,0.18);background:var(--card-bg,#fff);position:relative;">
+    <button onclick="closeTaskModal()" aria-label="Close" style="position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.5em;color:#888;">&times;</button>
+    <div class="card-body">
+      <h2 class="card-title text-center mb-4" style="color:var(--accent1,#6c63ff);font-weight:bold;">{{ action }} Task</h2>
+      {% if task %}
+      <!-- Edit mode: POST to edit_task, hide project/sprint fields, use hidden fields for IDs -->
+      <form method="POST" action="{{ url_for('edit_task', task_id=task.id) }}" aria-label="Edit task form">
+        <input type="hidden" name="project_id" value="{{ task.project_id }}">
+        <input type="hidden" name="sprint_id" value="{{ task.sprint_id }}">
+      {% else %}
+      <!-- Create mode: POST to create_task, show sprint dropdown if multiple sprints -->
+      <form method="POST" action="{{ url_for('create_task') }}" aria-label="Create task form">
+        <input type="hidden" name="project_id" value="{{ selected_project_id or (projects[0].id if projects|length == 1 else request.args.get('project_id')) }}">
+        {% if sprints|length > 1 %}
+          <label for="sprint_id">Sprint</label>
+          <select id="sprint_id" name="sprint_id" class="form-control" required>
+            <option value="">-- Select Sprint --</option>
+            {% for sprint in sprints %}
+              <option value="{{ sprint.id }}" {% if (selected_sprint_id and sprint.id == selected_sprint_id) or (not selected_sprint_id and loop.first) %}selected{% endif %}>{{ sprint.name }}</option>
+            {% endfor %}
+          </select><br>
+        {% elif sprints|length == 1 %}
+          <input type="hidden" name="sprint_id" value="{{ sprints[0].id }}">
+        {% endif %}
+      {% endif %}
+        <label for="title">Title</label>
+        <input id="title" name="title" placeholder="Title" class="form-control" value="{{ task.title if task else '' }}" required autofocus><br>
+        <label for="description">Description</label>
+        <textarea id="description" name="description" placeholder="Description" class="form-control">{{ task.description if task else '' }}</textarea><br>
+        <label for="status">Status</label>
+        <select id="status" name="status" class="form-control" required>
+          <option value="Open" {% if task and task.status == 'Open' %}selected{% endif %}>Open</option>
+          <option value="In Progress" {% if task and task.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+          <option value="Closed" {% if task and task.status == 'Closed' %}selected{% endif %}>Closed</option>
+        </select><br>
+        <label for="assignee_id">Assignee</label>
+        <select id="assignee_id" name="assignee_id" class="form-control">
+          <option value="">-- Unassigned --</option>
+          {% set assignees = project_users if project_users is defined else (task.project.users if task else (projects[0].users if projects|length == 1 else [])) %}
+          {% for user in assignees %}
+            <option value="{{ user.id }}" {% if (task and task.assignee_id == user.id) %}selected{% endif %}>{{ user.username }}</option>
+          {% endfor %}
+        </select><br>
+        <label for="story_points">Story Points</label>
+        <input id="story_points" name="story_points" type="number" min="0" class="form-control" value="{{ task.story_points if task and task.story_points is not none else '' }}" placeholder="e.g. 3"><br>
+        <button class="btn btn-primary btn-block" style="border-radius:8px;">{{ action }}</button>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+function closeTaskModal() {
+  let modal = document.getElementById('task-modal-overlay');
+  if (modal) {
+    modal.remove();
+    document.body.style.overflow = "";
+  }
+}
+</script>
+{% endblock %}

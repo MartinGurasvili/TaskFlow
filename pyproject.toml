@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "uni-project-task-tracker"
+version = "0.1.0"
+description = "A project task tracker web application built with Flask."
+authors = ["Your Name <your.email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+flask = "^2.0"
+flask-sqlalchemy = "^3.0"
+werkzeug = "^2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

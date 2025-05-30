@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="board-header" style="max-width:1200px;margin:0 auto;display:flex;flex-direction:column;align-items:center;">
+  <h2 style="font-weight:bold;color:var(--accent1,#6c63ff);margin-bottom:0.5rem;width:100%;text-align:left;padding-left:1rem;">Task Board (Sprint)</h2>
+  {% if not g.selected_project %}
+    <div class="alert alert-info" style="width:100%;margin-bottom:1rem;">Select a project from the sidebar to view its tasks.</div>
+  {% else %}
+    <form method="get" class="form-inline mb-3" aria-label="Sprint filter" style="width:100%;justify-content:flex-start;padding-left:1rem;">
+      <input type="hidden" name="project" value="{{ g.selected_project.id }}">
+      {% if sprints %}
+      <label for="sprint" class="mr-2">Sprint:</label>
+      <select id="sprint" name="sprint" class="form-control mr-3" onchange="this.form.submit()">
+        <option value="">-- All Sprints --</option>
+        {% for sprint in sprints %}
+          <option value="{{ sprint.id }}"{% if selected_sprint and sprint.id == selected_sprint.id %} selected{% endif %}>{{ sprint.name }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+    </form>
+    {% if sprints %}
+    <div class="text-right mb-3" style="width:100%;padding-left:1rem;">
+      <button class="btn btn-primary" onclick="openTaskModal({{ g.selected_project.id }}); return false;" aria-label="Create Task">+ Create Task</button>
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+<style>
+  .board-columns {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .board-column {
+    background: var(--primary-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    padding: 1rem;
+    min-width: 260px;
+    flex: 1 1 0;
+    min-height: 400px;
+    max-width: 32%;
+    margin-bottom: 1rem;
+  }
+  .board-column.dark-mode {
+    background: #23272b;
+  }
+  .board-column-header {
+    font-weight: bold;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+  }
+  .task-card {
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    cursor: grab;
+    transition: box-shadow 0.2s;
+    position: relative;
+  }
+  .task-card.closed {
+    background: #e9ecef !important;
+    color: #888 !important;
+    opacity: 0.7;
+    text-decoration: line-through;
+  }
+  body.dark-mode .task-card.closed {
+    background: #444 !important;
+    color: #aaa !important;
+  }
+  body.dark-mode .task-card {
+    background: #343a40;
+    color: #f8f9fa;
+  }
+  .task-card.dragging {
+    opacity: 0.5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .task-actions {
+    margin-top: 0.5rem;
+  }
+  .board-column.drag-over {
+    outline: 2px dashed #007bff;
+    background: #e3f2fd;
+  }
+  body.dark-mode .board-column.drag-over {
+    background: #2a3b4d;
+  }
+  .delete-task-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: transparent;
+    border: none;
+    color: #dc3545;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0;
+  }
+  .delete-task-btn:hover {
+    color: #a71d2a;
+  }
+  @media (max-width: 1200px) {
+    .board-columns {
+      max-width: 100vw;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .board-column {
+      min-width: 220px;
+      max-width: 100vw;
+    }
+  }
+  @media (max-width: 991px) {
+    .board-columns {
+      flex-direction: column;
+      max-width: 100vw;
+      gap: 0.5rem;
+    }
+    .board-column {
+      max-width: 100vw;
+      min-width: 0;
+    }
+  }
+  @media (max-width: 767px) {
+    .board-columns {
+      flex-direction: column;
+      gap: 0.5rem;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .board-column {
+      min-width: 0;
+      max-width: 100vw;
+      padding: 0.7rem;
+    }
+  }
+</style>
+<div class="board-columns" aria-label="Task board columns">
+  {% if g.selected_project %}
+    <div class="mb-2" style="width:100%;text-align:left;padding-left:1rem;">
+      <span class="badge badge-primary" style="font-size:1.1em;">
+        {% if selected_sprint %}
+          Sprint: {{ selected_sprint.name }}
+        {% else %}
+          Backlog (All Sprints)
+        {% endif %}
+      </span>
+    </div>
+  {% endif %}
+  {% for status in ['Open', 'In Progress', 'Closed'] %}
+  <div class="board-column{% if session.get('theme') == 'dark' %} dark-mode{% endif %}"
+       data-status="{{ status }}"
+       ondragover="onDragOver(event)"
+       ondrop="onDrop(event)"
+       ondragleave="onDragLeave(event)"
+       tabindex="0"
+       aria-label="{{ status }} tasks">
+    <div class="board-column-header">{{ status }}</div>
+    {% if not selected_sprint %}
+      {# Backlog: show all tasks for this project and status, regardless of sprint #}
+      {% for task in all_project_tasks if task.status == status %}
+        <div class="task-card{% if task.status == 'Closed' %} closed{% endif %}"
+             id="task-{{ task.id }}"
+             draggable="true"
+             ondragstart="onDragStart(event)"
+             ondragend="onDragEnd(event)"
+             aria-label="Task {{ task.title }}">
+          <button type="button" class="delete-task-btn" title="Delete Task" onclick="deleteTask({{ task.id }}); return false;">&times;</button>
+          <div><strong>{{ task.title }}</strong></div>
+          <div class="text-muted" style="font-size:0.95em;">{{ task.description }}</div>
+          <div style="font-size:0.85em;">Owner: {{ task.user.username }}</div>
+          <div style="font-size:0.85em;">
+            {% if task.assignee_id %}
+              {% set assignee = (users|selectattr('id', 'equalto', task.assignee_id)|list)[0] if users|selectattr('id', 'equalto', task.assignee_id)|list else None %}
+              Assigned to: {{ assignee.username if assignee else 'Unknown' }}
+            {% else %}
+              <span class="text-muted">Unassigned</span>
+            {% endif %}
+            {% if task.story_points %}
+              &nbsp;|&nbsp;<span title="Story Points">SP: {{ task.story_points }}</span>
+            {% endif %}
+          </div>
+          <div class="task-actions mt-1">
+            <button class="btn btn-sm btn-info" onclick="openEditTaskModal({{ task.id }}); return false;" aria-label="Edit {{ task.title }}">Edit</button>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      {# Sprint selected: show only tasks for this sprint and status #}
+      {% for task in tasks if task.status == status %}
+        <div class="task-card{% if task.status == 'Closed' %} closed{% endif %}"
+             id="task-{{ task.id }}"
+             draggable="true"
+             ondragstart="onDragStart(event)"
+             ondragend="onDragEnd(event)"
+             aria-label="Task {{ task.title }}">
+          <button type="button" class="delete-task-btn" title="Delete Task" onclick="deleteTask({{ task.id }}); return false;">&times;</button>
+          <div><strong>{{ task.title }}</strong></div>
+          <div class="text-muted" style="font-size:0.95em;">{{ task.description }}</div>
+          <div style="font-size:0.85em;">Owner: {{ task.user.username }}</div>
+          <div style="font-size:0.85em;">
+            {% if task.assignee_id %}
+              {% set assignee = (users|selectattr('id', 'equalto', task.assignee_id)|list)[0] if users|selectattr('id', 'equalto', task.assignee_id)|list else None %}
+              Assigned to: {{ assignee.username if assignee else 'Unknown' }}
+            {% else %}
+              <span class="text-muted">Unassigned</span>
+            {% endif %}
+            {% if task.story_points %}
+              &nbsp;|&nbsp;<span title="Story Points">SP: {{ task.story_points }}</span>
+            {% endif %}
+          </div>
+          <div class="task-actions mt-1">
+            <button class="btn btn-sm btn-info" onclick="openEditTaskModal({{ task.id }}); return false;" aria-label="Edit {{ task.title }}">Edit</button>
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+<script>
+let draggedTaskId = null;
+
+function onDragStart(event) {
+  draggedTaskId = event.target.id.replace('task-', '');
+  event.dataTransfer.effectAllowed = "move";
+  event.target.classList.add('dragging');
+}
+
+function onDragEnd(event) {
+  event.target.classList.remove('dragging');
+}
+
+function onDragOver(event) {
+  event.preventDefault();
+  event.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave(event) {
+  event.currentTarget.classList.remove('drag-over');
+}
+
+function onDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag-over');
+  const newStatus = event.currentTarget.getAttribute('data-status');
+  if (draggedTaskId && newStatus) {
+    // Optimistically move the card in the UI
+    const card = document.getElementById('task-' + draggedTaskId);
+    event.currentTarget.appendChild(card);
+
+    // Update card style for closed/open instantly
+    if (newStatus === "Closed") {
+      card.classList.add("closed");
+      showToast("Congratulations! Task completed!", "success", true);
+    } else {
+      card.classList.remove("closed");
+    }
+
+    // Send AJAX request to update status in backend
+    fetch(`/tasks/${draggedTaskId}/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token() if csrf_token is defined else "" }}'
+      },
+      body: JSON.stringify({status: newStatus})
+    }).then(response => {
+      if (!response.ok) {
+        alert('Failed to move task.');
+        window.location.reload();
+      }
+    });
+  }
+  draggedTaskId = null;
+}
+
+// Close task modal and remove sidebar if present
+function closeTaskModal() {
+  let modal = document.getElementById('task-modal-overlay');
+  if (modal) {
+    modal.remove();
+    document.body.style.overflow = "";
+  }
+  // Remove sidebar if present
+  let sidebar = document.getElementById('sidebar');
+  if (sidebar) {
+    sidebar.remove();
+  }
+}
+
+// Intercept form submit for create/edit task to close modal after success
+function handleTaskFormSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const formData = new FormData(form);
+  fetch(form.action, {
+    method: form.method,
+    body: formData,
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  })
+    .then(response => {
+      if (response.redirected) {
+        closeTaskModal();
+        window.location.href = response.url;
+      } else {
+        closeTaskModal(); // Always close modal on any response
+        return response.text().then(html => {
+          // Optionally, show errors in a toast or reload page
+        });
+      }
+    });
+}
+
+function attachTaskFormHandler() {
+  const modal =  document.getElementById('task-modal-overlay');
+  if (modal) {
+    const form = modal.querySelector('form[aria-label="Create task form"], form[aria-label="Edit task form"]');
+    if (form) {
+      form.addEventListener('submit', handleTaskFormSubmit);
+    }
+    // Also close modal on cancel/close button
+    const closeBtn = modal.querySelector('button[aria-label="Close"]');
+    if (closeBtn) {
+      closeBtn.onclick = closeTaskModal;
+    }
+  }
+}
+
+// Patch openEditTaskModal and openTaskModal to attach handler
+function openEditTaskModal(taskId) {
+  document.querySelectorAll('#task-modal-bg, #task-modal-overlay').forEach(el => el.remove());
+  const sidebars = document.querySelectorAll('#sidebar');
+  if (sidebars.length > 1) {
+    for (let i = 1; i < sidebars.length; i++) {
+      sidebars[i].remove();
+    }
+  }
+  fetch("{{ url_for('edit_task', task_id=0) }}".replace('0', taskId))
+    .then(response => response.text())
+    .then(html => {
+      let modal = document.createElement('div');
+      modal.id = "task-modal-overlay";
+      modal.innerHTML = html;
+      document.body.appendChild(modal);
+      document.body.style.overflow = "hidden";
+      setTimeout(() => {
+        const firstInput = modal.querySelector('input,select,textarea');
+        if (firstInput) firstInput.focus();
+        attachTaskFormHandler();
+      }, 100);
+    });
+}
+
+function openTaskModal(projectId) {
+  document.querySelectorAll('#task-modal-bg, #task-modal-overlay').forEach(el => el.remove());
+  const sidebars = document.querySelectorAll('#sidebar');
+  if (sidebars.length > 1) {
+    for (let i = 1; i < sidebars.length; i++) {
+      sidebars[i].remove();
+    }
+  }
+  fetch("{{ url_for('create_task') }}?project_id=" + projectId)
+    .then(response => response.text())
+    .then(html => {
+      let modal = document.createElement('div');
+      modal.id = "task-modal-overlay";
+      modal.innerHTML = html;
+      document.body.appendChild(modal);
+      document.body.style.overflow = "hidden";
+      setTimeout(() => {
+        const firstInput = modal.querySelector('input,select,textarea');
+        if (firstInput) firstInput.focus();
+        attachTaskFormHandler();
+      }, 100);
+    });
+}
+
+// Delete task via AJAX and remove from DOM
+function deleteTask(taskId) {
+  if (!confirm('Delete this task?')) return;
+  fetch(`/tasks/${taskId}/delete`, {
+    method: 'POST',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRFToken': '{{ csrf_token() if csrf_token is defined else "" }}'
+    }
+  }).then(response => {
+    if (response.ok) {
+      const card = document.getElementById('task-' + taskId);
+      if (card) card.remove();
+    } else {
+      alert('Failed to delete task.');
+    }
+  });
+}
+
+// Celebration notification (calls base.html showToast with celebrate=true)
+function showToast(message, category, celebrate) {
+  if (window.parent && window.parent.showToast) {
+    window.parent.showToast(message, category, celebrate);
+  } else if (typeof window.showToast === "function") {
+    window.showToast(message, category, celebrate);
+  }
+}
+</script>
+{% endblock %}
